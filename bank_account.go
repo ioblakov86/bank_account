@@ -1,8 +1,6 @@
 package main
 
-import (
-	"fmt"
-)
+import "fmt"
 
 type Account struct {
 	Owner   string
@@ -11,18 +9,17 @@ type Account struct {
 
 func (a *Account) Deposit(amount float64) error {
 	if amount <= 0 {
-		return fmt.Errorf("сумма пополнения не должна быть отрицательной")
+		return fmt.Errorf("сумма должна быть больше нуля")
 	}
 	a.Balance += amount
 	return nil
-
 }
 
 func (a *Account) Withdraw(amount float64) error {
 	if amount <= 0 {
-		return fmt.Errorf("сумма снятия не должна быть отрицательной")
+		return fmt.Errorf("сумма должна быть больше нуля")
 	}
-	if a.Balance < amount {
+	if amount > a.Balance {
 		return fmt.Errorf("недостаточно средств")
 	}
 	a.Balance -= amount
@@ -33,39 +30,23 @@ func (a Account) GetBalance() float64 {
 	return a.Balance
 }
 
+func perform(op string, err error, balance float64) {
+	if err != nil {
+		fmt.Println(op, "— ошибка:", err)
+		return
+	}
+	fmt.Printf("%s выполнено. Баланс: %.2f\n", op, balance)
+}
+
 func main() {
-	var newAccount Account
-	newAccount.Owner = "Иван"
-	fmt.Printf("Счет для клиента %s создан, баланс: %.2f\n", newAccount.Owner, newAccount.GetBalance())
-	err := newAccount.Deposit(10000)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Баланс пополнен. Баланс: %.2f\n", newAccount.GetBalance())
-	}
-	err = newAccount.Deposit(-1)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Баланс пополнен. Баланс: %.2f\n", newAccount.GetBalance())
-	}
-	err = newAccount.Deposit(-1)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Баланс пополнен. Баланс: %.2f\n", newAccount.GetBalance())
-	}
-	err = newAccount.Withdraw(5000)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Баланс пополнен. Баланс: %.2f\n", newAccount.GetBalance())
-	}
-	err = newAccount.Withdraw(-1.222)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Printf("Баланс пополнен. Баланс: %.2f\n", newAccount.GetBalance())
-	}
-	fmt.Printf("Итоговый баланс: %.2f\n", newAccount.GetBalance())
+	account := Account{Owner: "Иван"}
+
+	fmt.Printf("Счёт для %s создан. Баланс: %.2f\n", account.Owner, account.GetBalance())
+
+	perform("Пополнение", account.Deposit(10000), account.GetBalance())
+	perform("Пополнение", account.Deposit(-1), account.GetBalance())
+	perform("Снятие", account.Withdraw(5000), account.GetBalance())
+	perform("Снятие", account.Withdraw(-10), account.GetBalance())
+
+	fmt.Printf("Итоговый баланс: %.2f\n", account.GetBalance())
 }
