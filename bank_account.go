@@ -1,11 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Account struct {
 	Owner   string
 	Balance float64
 }
+
+var ErrInsufficientFunds = errors.New("недостаточно средств")
 
 func (a *Account) Deposit(amount float64) error {
 	if amount <= 0 {
@@ -20,7 +25,7 @@ func (a *Account) Withdraw(amount float64) error {
 		return fmt.Errorf("сумма должна быть больше нуля")
 	}
 	if amount > a.Balance {
-		return fmt.Errorf("недостаточно средств")
+		return ErrInsufficientFunds
 	}
 	a.Balance -= amount
 	return nil
@@ -32,6 +37,10 @@ func (a Account) GetBalance() float64 {
 
 func perform(op string, err error, balance float64) {
 	if err != nil {
+		if errors.Is(err, ErrInsufficientFunds) {
+			fmt.Printf("%s — ошибка: %w. Баланс: %.2f\n", op, balance)
+			return
+		}
 		fmt.Println(op, "— ошибка:", err)
 		return
 	}
