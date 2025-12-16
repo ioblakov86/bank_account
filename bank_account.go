@@ -25,7 +25,7 @@ func (a *Account) Withdraw(amount float64) error {
 		return fmt.Errorf("сумма должна быть больше нуля")
 	}
 	if amount > a.Balance {
-		return ErrInsufficientFunds
+		return fmt.Errorf("%w для снятия %.2f", ErrInsufficientFunds, amount)
 	}
 	a.Balance -= amount
 	return nil
@@ -38,7 +38,7 @@ func (a Account) GetBalance() float64 {
 func perform(op string, err error, balance float64) {
 	if err != nil {
 		if errors.Is(err, ErrInsufficientFunds) {
-			fmt.Printf("%s — ошибка: %w. Баланс: %.2f\n", op, err, balance)
+			fmt.Println(op, " — ошибка: ", err, ". Баланс: ", balance)
 			return
 		}
 		fmt.Println(op, "— ошибка:", err)
@@ -56,6 +56,7 @@ func main() {
 	perform("Пополнение", account.Deposit(-1), account.GetBalance())
 	perform("Снятие", account.Withdraw(5000), account.GetBalance())
 	perform("Снятие", account.Withdraw(-10), account.GetBalance())
+	perform("Снятие", account.Withdraw(10000), account.GetBalance())
 
 	fmt.Printf("Итоговый баланс: %.2f\n", account.GetBalance())
 }
