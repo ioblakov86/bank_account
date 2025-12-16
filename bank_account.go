@@ -38,7 +38,7 @@ func (a Account) GetBalance() float64 {
 func perform(op string, err error, balance float64) {
 	if err != nil {
 		if errors.Is(err, ErrInsufficientFunds) {
-			fmt.Printf("%s — ошибка: %w. Баланс: %.2f\n", op, balance)
+			fmt.Printf("%s — ошибка: %w. Баланс: %.2f\n", op, err, balance)
 			return
 		}
 		fmt.Println(op, "— ошибка:", err)
