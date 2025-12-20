@@ -35,28 +35,42 @@ func (a Account) GetBalance() float64 {
 	return a.Balance
 }
 
-func perform(op string, err error, balance float64) {
+func perform(op string, acc *Account, err error) {
+	cGreen := "\033[32m"
+	cRed := "\033[31m"
+	cYellow := "\033[33m"
+	cReset := "\033[0m"
+
 	if err != nil {
 		if errors.Is(err, ErrInsufficientFunds) {
-			fmt.Println(op, " — ошибка: ", err, "| Баланс: ", balance)
+			fmt.Println(cYellow, op, "— ошибка:", err, "| Баланс:", acc.GetBalance(), cReset)
 			return
 		}
-		fmt.Println(op, "— ошибка:", err)
+		fmt.Println(cRed, op, "— ошибка:", err, cReset)
 		return
 	}
-	fmt.Printf("%s выполнено. Баланс: %.2f\n", op, balance)
+	fmt.Printf(" %s%s выполнено. Баланс: %.2f%s\n", cGreen, op, acc.GetBalance(), cReset)
+}
+
+func NewAccount(owner string) (*Account, error) {
+	if owner == "" {
+		return nil, fmt.Errorf("owner cannot be empty")
+	}
+	return &Account{Owner: owner}, nil
 }
 
 func main() {
-	account := Account{Owner: "Иван"}
-
+	account, err := NewAccount("Иван")
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Счёт для %s создан. Баланс: %.2f\n", account.Owner, account.GetBalance())
 
-	perform("Пополнение", account.Deposit(10000), account.GetBalance())
-	perform("Пополнение", account.Deposit(-1), account.GetBalance())
-	perform("Снятие", account.Withdraw(5000), account.GetBalance())
-	perform("Снятие", account.Withdraw(-10), account.GetBalance())
-	perform("Снятие", account.Withdraw(10000), account.GetBalance())
+	perform("Пополнение", account, account.Deposit(10000))
+	perform("Пополнение", account, account.Deposit(-1))
+	perform("Снятие", account, account.Withdraw(5000))
+	perform("Снятие", account, account.Withdraw(-10))
+	perform("Снятие", account, account.Withdraw(10000))
 
 	fmt.Printf("Итоговый баланс: %.2f\n", account.GetBalance())
 }
