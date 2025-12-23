@@ -2,139 +2,150 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"sync"
-
-	"golang.org/x/term"
 )
 
+/*
 const (
+
 	colorGreen  = "\033[32m"
 	colorRed    = "\033[31m"
 	colorYellow = "\033[33m"
 	colorReset  = "\033[0m"
+
 )
 
-func isTerminal() bool {
-	return term.IsTerminal(int(os.Stdout.Fd()))
-}
-
-func green(s string) string {
-	if !isTerminal() {
-		return s
+	func isTerminal() bool {
+		return term.IsTerminal(int(os.Stdout.Fd()))
 	}
-	return colorGreen + s + colorReset
-}
 
-func red(s string) string {
-	if !isTerminal() {
-		return s
+	func green(s string) string {
+		if !isTerminal() {
+			return s
+		}
+		return colorGreen + s + colorReset
 	}
-	return colorRed + s + colorReset
-}
 
-func yellow(s string) string {
-	if !isTerminal() {
-		return s
+	func red(s string) string {
+		if !isTerminal() {
+			return s
+		}
+		return colorRed + s + colorReset
 	}
-	return colorYellow + s + colorReset
+*/
+type CommandType int
+
+const (
+	CmdDeposit CommandType = iota
+	CmdWithdraw
+	CmdGetBalance
+)
+
+type Command struct {
+	Type   CommandType
+	Amount float64
+	Reply  chan Result
 }
 
-type Account struct {
-	Owner   string
+type Result struct {
 	Balance float64
-	mu      sync.Mutex
+	Err     error
 }
 
 var ErrInsufficientFunds = errors.New("недостаточно средств")
 
-func (a *Account) Deposit(amount float64) error {
-	if amount <= 0 {
-		return fmt.Errorf("сумма должна быть больше нуля")
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.Balance += amount
-	return nil
+type Account struct {
+	Owner   string
+	Balance float64
 }
 
-func (a *Account) Withdraw(amount float64) error {
-	if amount <= 0 {
-		return fmt.Errorf("сумма должна быть больше нуля")
-	}
+func AccountActor(owner string) chan<- Command {
+	cmds := make(chan Command)
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	go func() {
+		balance := 0.0
 
-	if amount > a.Balance {
-		return fmt.Errorf("%w для снятия %.2f", ErrInsufficientFunds, amount)
-	}
+		for cmd := range cmds {
+			switch cmd.Type {
 
-	a.Balance -= amount
-	return nil
-}
+			case CmdDeposit:
+				if cmd.Amount <= 0 {
+					cmd.Reply <- Result{balance, errors.New("amount must be > 0")}
+					continue
+				}
+				balance += cmd.Amount
+				cmd.Reply <- Result{balance, nil}
 
-func (a *Account) GetBalance() float64 {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.Balance
-}
+			case CmdWithdraw:
+				if cmd.Amount <= 0 {
+					cmd.Reply <- Result{balance, errors.New("amount must be > 0")}
+					continue
+				}
+				if cmd.Amount > balance {
+					cmd.Reply <- Result{balance, ErrInsufficientFunds}
+					continue
+				}
+				balance -= cmd.Amount
+				cmd.Reply <- Result{balance, nil}
 
-func perform(op string, acc *Account, err error) {
-	if err != nil {
-		if errors.Is(err, ErrInsufficientFunds) {
-			fmt.Println(yellow(fmt.Sprint(op, " — ошибка:", err, "| Баланс:", acc.GetBalance())))
-			return
+			case CmdGetBalance:
+				cmd.Reply <- Result{balance, nil}
+			}
 		}
-		fmt.Println(red(fmt.Sprint(op, " — ошибка:", err)))
-		return
-	}
-	fmt.Println(green(fmt.Sprintf(" %s выполнено. Баланс: %.2f", op, acc.GetBalance())))
-}
+	}()
 
-func NewAccount(owner string) (*Account, error) {
-	if owner == "" {
-		return nil, fmt.Errorf("owner cannot be empty")
-	}
-	return &Account{Owner: owner}, nil
+	return cmds
 }
 
 func main() {
-	wg := sync.WaitGroup{}
-	wg.Add(5)
+	owner := flag.String("owner", "", "Владелец счёта")
+	op := flag.String("op", "", "Операция: deposit | withdraw | balance")
+	repeat := flag.Int("repeat", 1, "Количество повторений")
+	amount := flag.Float64("amount", 0, "Сумма операции")
+	flag.Parse()
 
-	account, err := NewAccount("Иван")
-	if err != nil {
-		panic(err)
+	if *owner == "" {
+		fmt.Println("owner is required")
+		os.Exit(1)
 	}
-	fmt.Printf("Счёт для %s создан. Баланс: %.2f\n", account.Owner, account.GetBalance())
 
-	go func() {
-		defer wg.Done()
-		perform("Пополнение", account, account.Deposit(10000))
-	}()
+	account := AccountActor(*owner)
 
-	go func() {
-		defer wg.Done()
-		perform("Пополнение", account, account.Deposit(-1))
-	}()
+	wg := sync.WaitGroup{}
+	wg.Add(*repeat)
 
-	go func() {
-		defer wg.Done()
-		perform("Снятие", account, account.Withdraw(5000))
-	}()
+	for i := 0; i < *repeat; i++ {
+		go func() {
+			defer wg.Done()
 
-	go func() {
-		defer wg.Done()
-		perform("Снятие", account, account.Withdraw(-10))
-	}()
+			reply := make(chan Result)
 
-	go func() {
-		defer wg.Done()
-		perform("Снятие", account, account.Withdraw(10000))
-	}()
+			switch *op {
+			case "deposit":
+				account <- Command{CmdDeposit, *amount, reply}
+			case "withdraw":
+				account <- Command{CmdWithdraw, *amount, reply}
+			case "balance":
+				account <- Command{CmdGetBalance, 0, reply}
+			default:
+				fmt.Println("unknown operation")
+				return
+			}
+
+			res := <-reply
+
+			if res.Err != nil {
+				fmt.Println("Error:", res.Err)
+				return
+			}
+
+			fmt.Println("Balance:", res.Balance)
+		}()
+	}
+
 	wg.Wait()
 
-	fmt.Printf("Итоговый баланс: %.2f\n", account.GetBalance())
 }
