@@ -8,34 +8,6 @@ import (
 	"sync"
 )
 
-/*
-const (
-
-	colorGreen  = "\033[32m"
-	colorRed    = "\033[31m"
-	colorYellow = "\033[33m"
-	colorReset  = "\033[0m"
-
-)
-
-	func isTerminal() bool {
-		return term.IsTerminal(int(os.Stdout.Fd()))
-	}
-
-	func green(s string) string {
-		if !isTerminal() {
-			return s
-		}
-		return colorGreen + s + colorReset
-	}
-
-	func red(s string) string {
-		if !isTerminal() {
-			return s
-		}
-		return colorRed + s + colorReset
-	}
-*/
 type CommandType int
 
 const (
